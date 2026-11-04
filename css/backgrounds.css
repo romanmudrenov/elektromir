@@ -1,0 +1,35 @@
+/* ---------- Фон страницы: акварель ---------- */
+body::before{
+  content:"";
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  z-index:-1;
+  background:
+    linear-gradient(rgba(255,246,249,.5),rgba(255,246,249,.5)),
+    url("../images/bg-watercolor.jpg") center/cover no-repeat;
+}
+
+/* ---------- Верх главной: цветущая сакура ---------- */
+.hero{
+  background:
+    linear-gradient(90deg,rgba(255,246,249,.82) 0%,rgba(255,246,249,.55) 45%,rgba(255,246,249,.15) 100%),
+    url("../images/hero-flowers.jpg") center/cover no-repeat;
+}
+
+/* Полупрозрачные блоки, чтобы фон просвечивал */
+.facts{background:rgba(255,255,255,.8)}
+#prices{background:rgba(255,255,255,.8) !important}
+
+/* ---------- Версия для телефона ---------- */
+@media (max-width:820px){
+  body::before{
+    background:
+      linear-gradient(rgba(255,246,249,.5),rgba(255,246,249,.5)),
+      url("../images/bg-watercolor-m.jpg") center/cover no-repeat;
+  }
+  .hero{
+    background:
+      linear-gradient(rgba(255,246,249,.7),rgba(255,246,249,.7)),
+      url("../images/hero-flowers-m.jpg") center/cover no-repeat;
+  }
+}
