@@ -33,6 +33,7 @@
     '<footer class="site-footer"><div class="wrap"><div class="cols">' +
     "<div><h3>" + S.brand + "</h3><p>Электроэпиляция в городе " + S.city + ". Удаляем волосы любого цвета.</p></div>" +
     "<div><h3>Контакты</h3><p><a href=\"tel:" + S.phoneLink + '">' + S.phone + "</a><br>" +
+    '<a href="' + S.telegram + '" target="_blank" rel="noopener">Telegram: ' + S.telegramName + "</a><br>" +
     '<a href="mailto:' + S.email + '">' + S.email + "</a><br>" + S.address + "<br>" + S.hours + "</p></div>" +
     '<div><h3>Разделы</h3><p><a href="reviews.html">Отзывы</a><br><a href="portfolio.html">Портфолио</a><br>' +
     '<a href="news.html">Новости</a><br><a href="cart.html">Корзина</a></p></div>' +
