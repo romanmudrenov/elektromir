@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Корзина — Тонкая игла</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Prata&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="cart">
+  <div id="site-header"></div>
+
+  <main>
+    <div class="wrap page-head">
+      <h1>Корзина</h1>
+    </div>
+
+    <section style="padding-top:1rem">
+      <div class="wrap cart-layout">
+        <div>
+          <div id="cartLines"></div>
+        </div>
+        <aside class="summary" aria-label="Оформление заказа">
+          <h2 style="font-size:1.4rem">Ваш заказ</h2>
+          <div class="total"><span>Итого</span><span id="cartTotal">0 ₽</span></div>
+          <form id="orderForm" novalidate>
+            <div class="field"><label for="o-name">Имя</label><input id="o-name" name="name" required autocomplete="given-name"></div>
+            <div class="field"><label for="o-phone">Телефон</label><input id="o-phone" name="phone" type="tel" required autocomplete="tel" placeholder="+7"></div>
+            <button class="btn" type="submit" id="orderBtn">Отправить заказ</button>
+            <p class="muted" style="font-size:.9rem;margin:.8rem 0 0">Онлайн-оплаты пока нет: администратор свяжется с вами и подтвердит заказ.</p>
+            <div class="form-msg" id="orderMsg" role="status"></div>
+          </form>
+        </aside>
+      </div>
+    </section>
+
+    <section style="padding-top:0">
+      <div class="wrap">
+        <h2>Что можно добавить</h2>
+        <div class="shop-grid" id="shopGrid"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/cart-page.js"></script>
+  <script src="js/bot.js"></script>
+</body>
+</html>
