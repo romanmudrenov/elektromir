@@ -81,4 +81,19 @@
     return fetch(S.formEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: body })
       .then(function (r) { if (!r.ok) throw new Error("bad status"); return r; });
   };
+
+  /* ---------- Подключение эффектов (искры, сердечки, плавное появление, переходы) ---------- */
+  var fxCss = document.createElement("link");
+  fxCss.rel = "stylesheet";
+  fxCss.href = "css/effects.css?v=1";
+  function loadEffects() {
+    if (window.__fxLoaded) return;
+    window.__fxLoaded = true;
+    var s = document.createElement("script");
+    s.src = "js/effects.js?v=1";
+    document.body.appendChild(s);
+  }
+  fxCss.onload = loadEffects;
+  fxCss.onerror = loadEffects;
+  document.head.appendChild(fxCss);
 })();
