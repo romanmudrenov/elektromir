@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Электроэпиляция в Москве — Тонкая игла</title>
+  <meta name="description" content="Электроэпиляция в Москве: удаляем светлые, рыжие, седые и тёмные волосы. Консультация, стерильные одноразовые иглы, запись онлайн.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Prata&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="home">
+  <div id="site-header"></div>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <h1>Волосы уходят по одному. Гладкость остаётся.</h1>
+          <p class="lead">Электроэпиляция удаляет волосы любого цвета: светлые, рыжие, седые. Лазер с ними не справляется, игла работает с каждым волоском отдельно.</p>
+          <div class="hero-actions">
+            <a class="btn" href="#book">Записаться на консультацию</a>
+            <a class="btn ghost" href="#prices">Посмотреть цены</a>
+          </div>
+        </div>
+        <svg id="skin" class="skin" viewBox="0 0 400 380" role="img" aria-label="Рисунок: волоски на коже исчезают один за другим"></svg>
+      </div>
+    </section>
+
+    <div class="facts">
+      <div class="wrap">
+        <ul>
+          <li><strong>Любой цвет волос</strong>Метод не зависит от пигмента, поэтому подходит и для седых волос.</li>
+          <li><strong>Постоянный результат</strong>Нужен курс сеансов: волосы растут в разных фазах.</li>
+          <li><strong>Одноразовые иглы</strong>Новая стерильная игла для каждого клиента.</li>
+          <li><strong>План на консультации</strong>Мастер оценит зону и назовёт число сеансов.</li>
+        </ul>
+      </div>
+    </div>
+
+    <section id="how">
+      <div class="wrap">
+        <h2>Как проходит первый визит</h2>
+        <ol class="steps">
+          <li><h3>Консультация</h3><p>Мастер осматривает зону, спрашивает о здоровье и противопоказаниях.</p></li>
+          <li><h3>План</h3><p>Называем примерное число сеансов и стоимость курса.</p></li>
+          <li><h3>Сеанс</h3><p>Игла вводится в волосяной фолликул, при необходимости используем обезболивающий крем.</p></li>
+          <li><h3>Уход</h3><p>Рассказываем, как ухаживать за кожей после процедуры и когда прийти снова.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="prices" style="background:var(--paper);border-block:1px solid var(--line)">
+      <div class="wrap">
+        <h2>Услуги и цены</h2>
+        <p class="muted">Цена зависит от времени сеанса. Точную стоимость курса назовёт мастер на консультации.</p>
+        <div class="price-list" id="priceList"></div>
+        <p style="margin-top:1.5rem"><a class="btn" href="cart.html">Выбрать и оплатить в корзине</a></p>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="wrap">
+        <h2>Частые вопросы</h2>
+        <div class="faq" id="faqList"></div>
+        <p style="margin-top:1.5rem">Остались вопросы? <a href="#chat" data-open-bot>Спросите помощника</a>.</p>
+      </div>
+    </section>
+
+    <section id="book" style="padding-top:1rem">
+      <div class="wrap contact-grid">
+        <div class="contact-card">
+          <h2>Записаться</h2>
+          <form id="bookForm" novalidate>
+            <div class="field"><label for="f-name">Имя</label><input id="f-name" name="name" required autocomplete="given-name"></div>
+            <div class="field"><label for="f-phone">Телефон</label><input id="f-phone" name="phone" type="tel" required autocomplete="tel" placeholder="+7"></div>
+            <div class="field"><label for="f-zone">Зона</label>
+              <select id="f-zone" name="zone"><option value="Не знаю, нужна консультация">Не знаю, нужна консультация</option></select>
+            </div>
+            <div class="field"><label for="f-comment">Комментарий</label><textarea id="f-comment" name="comment"></textarea></div>
+            <button class="btn" type="submit">Отправить заявку</button>
+            <div class="form-msg" id="bookMsg" role="status"></div>
+          </form>
+        </div>
+        <div>
+          <h2>Как нас найти</h2>
+          <ul class="contact-list" id="contactList"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/home.js"></script>
+  <script src="js/bot.js"></script>
+  <script>
+    document.getElementById("contactList").innerHTML =
+      "<li><strong>Телефон</strong><br><a href='tel:" + SITE.phoneLink + "'>" + SITE.phone + "</a></li>" +
+      "<li><strong>Адрес</strong><br>" + SITE.address + "</li>" +
+      "<li><strong>Часы работы</strong><br>" + SITE.hours + "</li>" +
+      "<li><strong>Почта</strong><br><a href='mailto:" + SITE.email + "'>" + SITE.email + "</a></li>";
+  </script>
+</body>
+</html>
