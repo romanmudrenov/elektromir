@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Отзывы об электроэпиляции — Тонкая игла</title>
+  <meta name="description" content="Отзывы клиентов об электроэпиляции в Москве.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Prata&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="reviews">
+  <div id="site-header"></div>
+
+  <main>
+    <div class="wrap page-head">
+      <h1>Отзывы</h1>
+      <div class="review-summary" id="summary"></div>
+      <div class="toolbar" id="filters" role="group" aria-label="Фильтр по источнику"></div>
+    </div>
+
+    <section style="padding-top:0">
+      <div class="wrap">
+        <div class="review-list" id="reviewList"></div>
+      </div>
+    </section>
+
+    <section style="padding-top:0">
+      <div class="wrap">
+        <div class="contact-card" style="max-width:640px">
+          <h2>Оставить отзыв</h2>
+          <form id="reviewForm" novalidate>
+            <div class="field"><label for="r-name">Имя</label><input id="r-name" name="name" required maxlength="40"></div>
+            <div class="field"><label for="r-zone">Зона</label><input id="r-zone" name="zone" maxlength="40" placeholder="Например, подмышки"></div>
+            <div class="field"><label for="r-rating">Оценка</label>
+              <select id="r-rating" name="rating"><option value="5">5 — отлично</option><option value="4">4 — хорошо</option><option value="3">3 — нормально</option><option value="2">2 — плохо</option><option value="1">1 — ужасно</option></select>
+            </div>
+            <div class="field"><label for="r-text">Отзыв</label><textarea id="r-text" name="text" required maxlength="1000"></textarea></div>
+            <button class="btn" type="submit">Отправить отзыв</button>
+            <div class="form-msg" id="reviewMsg" role="status"></div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/reviews.js"></script>
+  <script src="js/bot.js"></script>
+</body>
+</html>
