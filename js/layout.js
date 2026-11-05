@@ -106,4 +106,19 @@
   fxCss.onload = loadEffects;
   fxCss.onerror = loadEffects;
   document.head.appendChild(fxCss);
+
+  /* ---------- Премиальный слой: 3D-меню, объёмные иконки, неоновое свечение, параллакс ---------- */
+  var premCss = document.createElement("link");
+  premCss.rel = "stylesheet";
+  premCss.href = "css/premium.css?v=1";
+  function loadPremium() {
+    if (window.__premLoaded) return;
+    window.__premLoaded = true;
+    var s = document.createElement("script");
+    s.src = "js/premium.js?v=1";
+    document.body.appendChild(s);
+  }
+  premCss.onload = loadPremium;
+  premCss.onerror = loadPremium;
+  document.head.appendChild(premCss);
 })();
