@@ -4,6 +4,12 @@
   var S = window.SITE;
   var page = document.body.getAttribute("data-page");
 
+  /* Стили логотипа и фоновых окон подключаем сразу, чтобы шапка не «прыгала» */
+  var winCss = document.createElement("link");
+  winCss.rel = "stylesheet";
+  winCss.href = "css/windows.css?v=1";
+  document.head.appendChild(winCss);
+
   var links = [
     ["home", "index.html", "Главная"],
     ["reviews", "reviews.html", "Отзывы"],
@@ -15,14 +21,10 @@
     return '<a href="' + l[1] + '"' + (l[0] === page ? ' aria-current="page"' : "") + ">" + l[2] + "</a>";
   }).join("");
 
-  var logoSvg =
-    '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#CFEAE3"/>' +
-    '<path d="M9 23 L23 9" stroke="#14283A" stroke-width="2.2" stroke-linecap="round"/>' +
-    '<circle cx="9" cy="23" r="2" fill="#1E8C8A"/></svg>';
-
   var header =
     '<header class="site-header"><div class="wrap">' +
-    '<a class="logo" href="index.html">' + logoSvg + S.brand + "</a>" +
+    '<a class="logo" href="index.html" aria-label="' + S.brand + ' — на главную">' +
+    '<img src="images/logo.png" alt="' + S.brand + '" width="133" height="104"></a>' +
     '<button class="burger" aria-expanded="false" aria-controls="nav">Меню</button>' +
     '<nav class="nav" id="nav" aria-label="Основное меню">' + navHtml +
     '<a class="cart-link" href="cart.html"' + (page === "cart" ? ' aria-current="page"' : "") + ">Корзина " +
@@ -52,6 +54,14 @@
       var open = nav.classList.toggle("open");
       burger.setAttribute("aria-expanded", open ? "true" : "false");
     });
+  }
+
+  /* Шапка уменьшается, когда страницу прокрутили */
+  var hdr = document.querySelector(".site-header");
+  if (hdr) {
+    var onScroll = function () { hdr.classList.toggle("scrolled", window.pageYOffset > 30); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
   }
 
   /* Утилита для форматирования цены: 15300 -> "15 300 ₽" */
