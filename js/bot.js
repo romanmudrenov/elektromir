@@ -1,13 +1,283 @@
-/* Чат-бот. Настройки — в js/config.js (объект window.BOT).
-   Режим "local": ответы по ключевым словам из data.js (window.BOT_RULES).
-   Режим "api": запрос на ваш сервер. Формат:
-     POST endpoint  { "messages": [ {"role":"user","content":"..."}, ... ] }
+/* Чат-бот «Электромира».
+   Настройки и цены — в js/config.js (объекты window.SITE и window.BOT).
+   Работает без сервера: отвечает по базе вопросов, ведёт запись клиента в чате.
+   Если в config.js включить mode:"api" и указать endpoint, то на непонятные вопросы
+   бот спросит ваш сервер (токен ИИ хранится только на сервере, не на сайте). Формат:
+     POST endpoint  { "messages": [ {"role":"user","content":"..."} ], "system": "..." }
      ответ          { "reply": "текст ответа" }
 */
 (function () {
-  var B = window.BOT;
-  var history = [];
+  "use strict";
 
+  var B = window.BOT;
+  var S = window.SITE;
+  var F = B.facts || {};
+
+  /* ---------- подключаем стили бота ---------- */
+  var cssLink = document.createElement("link");
+  cssLink.rel = "stylesheet";
+  cssLink.href = "css/bot.css?v=1";
+  document.head.appendChild(cssLink);
+
+  /* ---------- вспомогательные функции ---------- */
+  function norm(s) {
+    return String(s || "").toLowerCase().replace(/ё/g, "е")
+      .replace(/[^a-zа-я0-9+\s]/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+  function pick(list, key) {
+    if (list.length === 1) return list[0];
+    var last = pick.mem[key];
+    var i, tries = 0;
+    do { i = Math.floor(Math.random() * list.length); tries++; } while (i === last && tries < 6);
+    pick.mem[key] = i;
+    return list[i];
+  }
+  pick.mem = {};
+
+  /* Превращает текст ответа в безопасный HTML: **жирный**, переводы строк, ссылки на телефон и Telegram */
+  function render(tpl) {
+    var t = String(tpl)
+      .replace(/\{price_body\}/g, F.body)
+      .replace(/\{price_bikini\}/g, F.bikini)
+      .replace(/\{needle\}/g, F.needle);
+    t = t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+      .replace(/\n/g, "<br>");
+    t = t.replace(/\{phone\}/g, '<a href="tel:' + S.phoneLink + '">' + S.phone + "</a>")
+      .replace(/\{tg\}/g, '<a href="' + S.telegram + '" target="_blank" rel="noopener">' + S.telegramName + "</a>")
+      .replace(/\{hours\}/g, S.hours)
+      .replace(/\{address\}/g, S.address);
+    return t;
+  }
+
+  /* ---------- база знаний ----------
+     k — слова и фразы (ищем с начала слова), a — варианты ответа.
+     Фраза из нескольких слов весит больше, чем одно слово. */
+  var INTENTS = [
+    { id: "contra", w: 3, k: ["противопоказ", "беремен", "кормлю", "лактаци", "диабет", "онколог", "рак$", "герпес", "аллерги", "кардиостимулят", "эпилепси", "гепатит", "вич$", "псориаз", "экзем", "варикоз", "давлени", "щитовидн", "месячн", "цикл"],
+      a: ["Тут важно не гадать. 🌸 Есть состояния, при которых процедуру откладывают или согласуют с врачом (например, беременность, воспаления кожи в зоне обработки, некоторые хронические заболевания). Ваш случай лучше обсудить с мастером на консультации: {phone}.",
+          "Я не врач и не хочу вас подвести, поэтому без осмотра не отвечаю «можно» или «нельзя». Расскажите о своём состоянии мастеру на консультации или врачу. Телефон: {phone}."] },
+
+    { id: "pain", w: 1, k: ["больно", "болезненн", "боли", "болит", "терпим", "ощущен", "анестез", "обезбол", "обезболив", "неприятн", "страшно", "чувствител", "покалыв"],
+      a: ["Ощущения у всех разные. 🌸 Обычно это покалывание или тепло, на чувствительных зонах (бикини, над губой) оно заметнее. По согласованию можно использовать обезболивающий крем, и мастер сделает паузу, если нужно.",
+          "Честный ответ: это не совсем без ощущений, но большинство клиентов переносят процедуру спокойно. ✨ Если вы чувствительны, скажите мастеру заранее: подберём крем и темп работы.",
+          "Зависит от зоны и вашего болевого порога. Для нежных зон есть анестезирующие кремы, а мастер всегда ориентируется на ваши ощущения. Хотите, запишу вас на консультацию, чтобы попробовать на небольшом участке? ⚡"] },
+
+    { id: "price", w: 1, k: ["сколько стоит", "стоимост", "прайс", "цен$", "цена", "цены", "цену", "цене", "стоит", "дорого", "дешев", "тариф", "руб", "сколько платить", "почем", "сколько будет стоить", "сколько денег", "ценник"],
+      a: ["Работаем по честной поминутной оплате 💳: тело — **{price_body} ₽/мин**, бикини — **{price_bikini} ₽/мин**. Плюс **{needle} ₽** за вашу личную стерильную иглу. Итог зависит от времени работы мастера, примерную цифру назовёт он на осмотре.",
+          "Считаем по времени: **{price_body} ₽ за минуту** на теле и **{price_bikini} ₽** в зоне бикини, игла одноразовая — **{needle} ₽**. Чем больше волос, тем дольше работа; со временем волос становится меньше, и сеансы короче. ✨",
+          "Цена складывается из минут работы: от **{price_body} ₽/мин**. Для вашей зоны точную сумму посчитает мастер после осмотра. Записать вас на консультацию? 🌸"] },
+
+    { id: "permanent", w: 1, k: ["навсегда", "навсегд", "постоянн", "перманент", "вернутся", "вернется", "вернуться", "отраст", "снова растут", "появятся ли", "гаранти", "эффект", "насколько надежн"],
+      a: ["Электроэпиляция признана методом постоянного удаления волос. ⚡ Но результат достигается курсом: волосы растут в разных фазах, поэтому за один раз все не обработать. Точный прогноз по вашей зоне даст мастер, а гарантировать конкретный итог заранее нельзя: он зависит от гормонального фона и особенностей организма.",
+          "Каждый волосок обрабатывается отдельно, и после курса новые волосы в обработанных фолликулах, как правило, не появляются. 🌸 Но гормональный фон может «будить» новые фолликулы, поэтому иногда нужны поддерживающие сеансы."] },
+
+    { id: "sessions", w: 1, k: ["сколько сеанс", "сколько процедур", "сколько раз", "курс", "сколько ходить", "как долго идти", "как часто", "периодичн", "через сколько", "сколько нужно сеанс", "количество сеанс", "сколько месяц"],
+      a: ["Число сеансов индивидуально: зависит от зоны, густоты и толщины волос, гормонального фона. 🌸 Сначала сеансы чаще, потом реже, потому что волос становится меньше. Точный план составит мастер на консультации.",
+          "Однозначной цифры без осмотра не назову: для небольшой зоны может хватить нескольких месяцев, для больших нужно дольше. ✨ Хотите, запишу вас на консультацию, там сразу составят план?"] },
+
+    { id: "duration", w: 2, k: ["сколько длится", "сколько по времени", "как долго длится", "сколько времени занимает", "сколько занимает", "длительность сеанс", "сколько минут", "на сколько записат"],
+      a: ["Сеанс можно выбрать на **15, 30 или 60 минут**: от небольшой зоны (над губой, брови) до больших, например голени или глубокое бикини. 🌸",
+          "Обычно 15, 30 или 60 минут: зависит от зоны. Время можно выбрать при записи или в разделе «Корзина». ⚡"] },
+
+    { id: "zones", w: 1, k: ["зон", "бикини", "интимн", "лицо", "лица", "лицу", "лице$", "лиц$", "в ушах", "в носу", "внутри уш", "внутри нос", "в ухе", "подмыш", "ног", "голен", "бедр", "рук", "предплеч", "пальц", "усик", "над губ", "борода", "бороду", "подбородок", "щек", "бров", "груд", "живот", "спин", "ягодиц", "шея", "шеи", "плеч", "можно ли убрать", "какие места"],
+      a: ["Работаем со всеми основными зонами: лицо, подмышки, руки, ноги, бикини (в том числе глубокое), живот, спина. ✨ Исключения: внутренняя часть ушей и носа. Точный список и особенности вашей зоны уточнит мастер.",
+          "Да, такие зоны делаем. 🌸 Если нужен конкретный участок, напишите его, а я подскажу, как лучше записаться."] },
+
+    { id: "hair", w: 1, k: ["седые", "седых", "седина", "светлые", "светлых", "рыжие", "рыжих", "пушков", "тонкие волос", "цвет волос", "любые волосы", "лазер", "фотоэпиляц", "фото эпиляц", "шугаринг", "воск$", "воском", "воска", "бритв", "чем отличается", "чем лучше"],
+      a: ["Электроэпиляция работает с любыми волосами: светлыми, рыжими, седыми и пушковыми. ⚡ Лазер и фотоэпиляция реагируют на пигмент, поэтому светлые и седые волосы плохо поддаются. Игла действует на фолликул напрямую и от цвета не зависит.",
+          "Главное отличие: лазеру нужен тёмный волос на светлой коже, а нам нет. 🌸 Если лазер вам не помог или волосы седые и светлые, электроэпиляция как раз подходит."] },
+
+    { id: "prep", w: 2, k: ["как подготов", "подготовк", "подготовиться", "перед процедур", "перед сеанс", "что делать перед", "что надеть", "что взять", "что с собой", "какой длины", "отрастить", "брить ли", "можно ли брить", "до процедуры", "перед эпиляц"],
+      a: ["Подготовка простая: 🌸\n• волосы должны быть длиной примерно 2–4 мм (отрастите, если брили);\n• за пару дней не эпилируйте воском, шугарингом или пинцетом;\n• в день процедуры не наносите крем на зону;\n• избегайте свежего загара.\nМастер уточнит детали на консультации."] },
+
+    { id: "after", w: 2, k: ["после процедур", "после сеанс", "после эпиляц", "уход после", "покраснен", "корочк", "отек", "отёк", "можно ли мыться", "баня", "сауна", "солярий", "загорать", "после этого", "заживлен"],
+      a: ["После сеанса может быть небольшое покраснение: это частая реакция, обычно она быстро проходит. ✨ В первые сутки лучше не тереть зону, не париться в бане, не ходить в солярий и не загорать. Индивидуальные рекомендации даст мастер сразу после процедуры.",
+          "Первые дни кожу не раздражаем: без горячих ванн, сауны, солярия и скраба на обработанной зоне. 🌸 Если что-то беспокоит, пишите администратору: {phone}."] },
+
+    { id: "hygiene", w: 1, k: ["стерильн", "безопасн", "игл", "одноразов", "гигиен", "инфекц", "заразит", "обрабатыва", "дезинфек"],
+      a: ["Безопасность на первом месте. ⚡ Иглы одноразовые, стерильные, для каждого клиента новая (персональная игла — **{needle} ₽**), рабочее место обрабатывается перед приёмом.",
+          "Используем одноразовые стерильные иглы: вскрываем при вас. 🌸 Рабочее место и инструменты обрабатываются перед каждым клиентом."] },
+
+    { id: "first", w: 2, k: ["первый визит", "первый раз", "что будет на консультац", "как проходит", "как проходит консультац", "что входит", "как это происходит", "как проходит процедур"],
+      a: ["Как проходит первый визит: 🌸\n1. Консультация: мастер осматривает зону и спрашивает о здоровье.\n2. План: называем число сеансов и примерную стоимость.\n3. Сеанс: игла вводится в волосяной фолликул, при необходимости используем крем.\n4. Уход: рассказываем, как беречь кожу и когда прийти снова."] },
+
+    { id: "discount", w: 1, k: ["акци", "скидк", "абонемент", "пакет", "сертификат", "подарок", "подарочн", "бонус", "выгодн", "промокод"],
+      a: ["Актуальные акции мы публикуем в разделе «Новости». ✨ А в «Корзине» можно выбрать пакет сеансов и подарочный сертификат. Подскажу, что подойдёт, если расскажете, какая зона вас интересует."] },
+
+    { id: "payment", w: 1, k: ["оплат", "наличн", "карто", "картой", "перевод", "рассрочк", "предоплат", "кредит", "чек"],
+      a: ["По способам оплаты лучше уточнить у администратора: {phone}. 🌸 Заказ из «Корзины» он подтверждает по телефону, после этого договаривается о времени."] },
+
+    { id: "master", w: 1, k: ["мастер", "специалист", "кто делает", "опыт", "квалификац", "лицензи", "диплом", "сертификат мастер", "врач", "медицинск"],
+      a: ["Подробности о мастерах, образовании и документах лучше узнать у администратора: {phone}. ✨ На консультации вы увидите мастера лично и сможете задать любые вопросы."] },
+
+    { id: "age", w: 2, k: ["сколько лет", "возраст", "подросток", "несовершеннолет", "школьниц", "с какого возраста", "мне 1", "ребенк", "ребёнк"],
+      a: ["По возрасту и условиям для несовершеннолетних уточните у администратора: {phone}. 🌸 Это решается индивидуально, обычно нужно согласие родителей."] },
+
+    { id: "men", w: 2, k: ["мужчин", "мужик", "парням", "для парней", "мужская"],
+      a: ["Электроэпиляция подходит и женщинам, и мужчинам. ⚡ Популярные мужские зоны: лицо и линия бороды, шея, плечи, спина. Подробности обсудим на консультации."] },
+
+    { id: "contacts", w: 1, k: ["адрес", "где находит", "где вы", "как добраться", "как доехать", "метро", "телефон", "позвонить", "номер", "whatsapp", "вацап", "ватсап", "telegram", "телеграм", "график", "часы работы", "во сколько", "до скольки", "работаете", "режим работы", "выходной", "связаться", "контакты"],
+      a: ["Мы здесь: {address}. 🌸\nЧасы работы: {hours}.\nТелефон: {phone}\nTelegram: {tg}"] },
+
+    { id: "freeconsult", w: 3, k: ["бесплатн", "платная ли", "консультация платн", "консультация стоит", "сколько стоит консультац"],
+      a: ["Условия и стоимость консультации лучше уточнить у администратора: {phone}. 🌸 Если хотите, оформлю заявку прямо здесь, напишите «Записаться»."] },
+
+    { id: "booking", w: 2, k: ["запис", "записать", "записаться", "окошк", "свободное время", "свободные", "окно", "хочу прийти", "приём", "прием", "консультац", "хочу попробовать", "когда можно", "ближайш"],
+      a: [""] },
+
+    { id: "bot", w: 2, k: ["ты бот", "вы бот", "это бот", "бот ли", "ты человек", "кто ты", "робот", "ты живой", "с кем я говорю", "нейросет", "ты ии"],
+      a: ["Я виртуальный помощник «Электромира». 🌸 Отвечу на частые вопросы и запишу вас на консультацию. А если нужен живой человек, звоните: {phone}."] },
+
+    { id: "thanks", w: 0.6, k: ["спасибо", "благодар", "спс", "выручил"],
+      a: ["Пожалуйста! 🌸 Если появятся ещё вопросы, пишите.", "Всегда рада помочь! ✨ Хотите, запишу вас на консультацию?"] },
+
+    { id: "bye", w: 0.6, k: ["пока пока", "ну пока", "все пока", "до свидания", "всего доброго", "хорошего дня"],
+      a: ["Хорошего дня! 🌸 Будем рады видеть вас.", "До встречи! ✨ Если захотите записаться, я здесь."] },
+
+    { id: "greet", w: 0.5, k: ["привет", "здравств", "добрый день", "добрый вечер", "доброе утро", "хай", "hello", "приветик"],
+      a: ["Здравствуйте! 🌸 Чем могу помочь? Можно спросить про ощущения, цены, зоны или записаться на консультацию.", "Привет! ✨ Расскажу про процедуру, цены и запишу вас на консультацию. О чём рассказать?"] }
+  ];
+
+  /* Готовим регулярные выражения: слово должно начинаться с указанного фрагмента */
+  INTENTS.forEach(function (it) {
+    it.re = it.k.map(function (stem) {
+      var whole = /\$$/.test(stem);   // «слово$» означает слово целиком, без продолжения
+      var n = norm(stem);
+      return { re: new RegExp("(^|\\s)" + escRe(n) + (whole ? "(\\s|$)" : "")), weight: n.indexOf(" ") >= 0 ? 2 : 1 };
+    });
+  });
+
+  function match(text) {
+    var t = norm(text);
+    if (!t) return null;
+    if (t === "пока") return INTENTS.filter(function (i) { return i.id === "bye"; })[0];
+    var best = null, bestScore = 0;
+    INTENTS.forEach(function (it) {
+      var score = 0;
+      it.re.forEach(function (p) { if (p.re.test(t)) score += p.weight; });
+      score *= it.w;
+      if (score > bestScore) { bestScore = score; best = it; }
+    });
+    if (best && bestScore >= 0.5) return best;
+    // одно «сколько» без уточнений считаем вопросом о цене
+    if (/(^|\s)сколько(\s|$)/.test(t)) return INTENTS.filter(function (i) { return i.id === "price"; })[0];
+    return null;
+  }
+
+  /* Особые случаи внутри темы «зоны» */
+  function zoneAnswer(text) {
+    var t = norm(text);
+    if (/(^|\s)(уш|нос)/.test(t) && /(внутр|в нос|в уш|в носу|в ухе)/.test(t)) {
+      return "Внутри ушей и носа процедуру не делаем. ✨ Остальные зоны в большинстве случаев доступны, уточните у мастера свою.";
+    }
+    if (/(ресниц|веки|вокруг глаз|глаз)/.test(t)) {
+      return "Зоны возле глаз, ресницы и веки лучше обсудить с мастером лично на консультации: {phone}. 🌸";
+    }
+    return null;
+  }
+
+  /* ---------- запись клиента в чате ---------- */
+  var flow = null;
+  function startBooking() {
+    flow = { step: "name", data: {} };
+    return "Отлично, оформим заявку! 🌸 Как вас зовут?\n(Чтобы выйти, напишите «отмена».)";
+  }
+  function prompt(step) {
+    if (step === "name") return "Как вас зовут?";
+    if (step === "phone") return "Оставьте номер телефона, по которому вам позвонить. Он нужен только для связи по записи.";
+    return "Какая зона вас интересует? Если не знаете, напишите «не знаю».";
+  }
+  function flowStep(text) {
+    var raw = String(text).trim();
+    if (/^(отмена|стоп|не надо|не хочу|передумал|передумала)/i.test(raw)) {
+      flow = null;
+      return Promise.resolve("Хорошо, заявку не оформляю. 🌸 Если передумаете, напишите «Записаться».");
+    }
+    if (flow.step === "name") {
+      if (raw.replace(/\D/g, "").length >= 6 || raw.length < 2 || raw.length > 40) {
+        return Promise.resolve("Напишите, пожалуйста, ваше имя, например «Анна». 🌸");
+      }
+      flow.data.name = raw;
+      flow.step = "phone";
+      return Promise.resolve("Приятно познакомиться, " + raw + "! " + prompt("phone"));
+    }
+    if (flow.step === "phone") {
+      var digits = raw.replace(/\D/g, "");
+      if (digits.length < 10 || digits.length > 12) {
+        return Promise.resolve("Кажется, в номере не хватает цифр. Напишите номер полностью, например +7 900 123-45-67.");
+      }
+      flow.data.phone = raw.replace(/[^\d+]/g, "");
+      flow.step = "zone";
+      return Promise.resolve(prompt("zone"));
+    }
+    // шаг «зона»: отправляем заявку
+    flow.data.zone = /^не\s*знаю/i.test(raw) ? "Не знаю, нужна консультация" : raw;
+    var d = flow.data;
+    flow = null;
+    return window.sendForm("booking", { name: d.name, phone: d.phone, zone: d.zone, comment: "Заявка из чата" })
+      .then(function () {
+        return "Готово! ✅ Заявка принята, " + d.name + ". Администратор позвонит вам в рабочее время ({hours}). 🌸";
+      })
+      .catch(function () {
+        return "Не получилось отправить заявку автоматически. 😔 Позвоните нам, пожалуйста: {phone}, или напишите в Telegram: {tg}.";
+      });
+  }
+
+  /* ---------- запасной ответ и ИИ через сервер ---------- */
+  var misses = 0;
+  function fallback() {
+    misses++;
+    var base = pick([
+      "Не уверена, что правильно поняла вопрос. 🌸 Я хорошо отвечаю про ощущения, цены, зоны, подготовку, уход и запись. Попробуйте переформулировать?",
+      "Хм, на этот вопрос у меня нет точного ответа. ✨ Могу рассказать про цены, зоны, ощущения или записать вас на консультацию."
+    ], "fallback");
+    if (misses >= 2) base += "\n\nИли позвоните администратору: {phone}, он ответит на всё.";
+    return base;
+  }
+
+  var history = [];
+  function askApi() {
+    return fetch(B.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: history.slice(-8), system: B.systemPrompt || "" })
+    })
+      .then(function (r) { if (!r.ok) throw new Error("status " + r.status); return r.json(); })
+      .then(function (j) { return j && j.reply ? String(j.reply).trim() : null; })
+      .catch(function () { return null; });
+  }
+
+  function respond(text) {
+    if (flow) {
+      var isQuestion = /\?\s*$/.test(text.trim());
+      if (isQuestion) {
+        var m0 = match(text);
+        if (m0 && m0.id !== "booking") {
+          return Promise.resolve(answerFor(m0, text) + "\n\nА пока продолжим запись. " + prompt(flow.step));
+        }
+      }
+      return flowStep(text);
+    }
+    var m = match(text);
+    if (m && m.id === "booking") return Promise.resolve(startBooking());
+    if (m) { misses = 0; return Promise.resolve(answerFor(m, text)); }
+    if (B.mode === "api" && B.endpoint) {
+      return askApi().then(function (r) { return r || fallback(); });
+    }
+    return Promise.resolve(fallback());
+  }
+
+  function answerFor(m, text) {
+    if (m.id === "zones") {
+      var special = zoneAnswer(text);
+      if (special) return special;
+    }
+    return pick(m.a, m.id);
+  }
+
+  /* ---------- интерфейс ---------- */
   var fab = document.createElement("button");
   fab.className = "bot-fab";
   fab.setAttribute("aria-label", "Открыть чат с помощником");
@@ -21,7 +291,9 @@
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-label", "Чат с помощником");
   panel.innerHTML =
-    '<div class="bot-head"><strong></strong><button type="button" aria-label="Закрыть чат">×</button></div>' +
+    '<div class="bot-head"><strong></strong><div class="bot-head-btns">' +
+    '<button type="button" class="bot-reload" title="Начать диалог заново">Заново</button>' +
+    '<button type="button" class="bot-close" aria-label="Закрыть чат">×</button></div></div>' +
     '<div class="bot-log" aria-live="polite"></div>' +
     '<div class="bot-quick"></div>' +
     '<form class="bot-form"><input type="text" placeholder="Ваш вопрос" aria-label="Сообщение" autocomplete="off" maxlength="500">' +
@@ -36,57 +308,50 @@
   var input = form.querySelector("input");
   panel.querySelector("strong").textContent = B.name;
 
-  function add(role, text) {
+  function addUser(text) {
     var d = document.createElement("div");
-    d.className = "msg " + role;
+    d.className = "msg user";
     d.textContent = text;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+  }
+  function addBot(tpl) {
+    var d = document.createElement("div");
+    d.className = "msg bot";
+    d.innerHTML = render(tpl);
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+    return d;
+  }
+  function showTyping() {
+    var d = document.createElement("div");
+    d.className = "msg bot typing";
+    d.setAttribute("aria-label", "Печатает");
+    d.innerHTML = "<span></span><span></span><span></span>";
     log.appendChild(d);
     log.scrollTop = log.scrollHeight;
     return d;
   }
 
-  function localAnswer(text) {
-    var t = text.toLowerCase();
-    var rules = window.BOT_RULES || [];
-    for (var i = 0; i < rules.length; i++) {
-      for (var k = 0; k < rules[i].keys.length; k++) {
-        if (t.indexOf(rules[i].keys[k]) !== -1) return rules[i].answer;
-      }
-    }
-    return B.fallback;
-  }
-
-  function ask(text) {
-    history.push({ role: "user", content: text });
-    if (B.mode === "api" && B.endpoint) {
-      var wait = add("bot", "…");
-      fetch(B.endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history.slice(-12) })
-      })
-        .then(function (r) { if (!r.ok) throw new Error("status " + r.status); return r.json(); })
-        .then(function (j) {
-          wait.textContent = j.reply || B.fallback;
-          history.push({ role: "assistant", content: wait.textContent });
-        })
-        .catch(function () {
-          wait.textContent = "Сейчас не получается ответить. Позвоните нам: " + window.SITE.phone;
-        });
-    } else {
-      var ans = localAnswer(text);
-      setTimeout(function () {
-        add("bot", ans);
-        history.push({ role: "assistant", content: ans });
-      }, 350);
-    }
-  }
-
+  var busy = false;
   function send(text) {
-    text = text.trim();
-    if (!text) return;
-    add("user", text);
-    ask(text);
+    text = String(text || "").trim();
+    if (!text || busy) return;
+    busy = true;
+    addUser(text);
+    history.push({ role: "user", content: text });
+    var typing = showTyping();
+    var started = Date.now();
+
+    respond(text).then(function (answer) {
+      var wait = Math.max(0, Math.min(1400, 400 + answer.length * 6) - (Date.now() - started));
+      setTimeout(function () {
+        if (typing.parentNode) typing.parentNode.removeChild(typing);
+        addBot(answer);
+        history.push({ role: "assistant", content: answer.replace(/\{[a-z_]+\}/g, "") });
+        busy = false;
+      }, wait);
+    });
   }
 
   B.quick.forEach(function (q) {
@@ -98,28 +363,42 @@
     quick.appendChild(b);
   });
 
+  function reset() {
+    log.innerHTML = "";
+    history = [];
+    flow = null;
+    misses = 0;
+    busy = false;
+    addBot(B.greeting);
+  }
+
   function toggle(open) {
     var isOpen = open === undefined ? !panel.classList.contains("open") : open;
     panel.classList.toggle("open", isOpen);
     fab.setAttribute("aria-expanded", isOpen ? "true" : "false");
     if (isOpen) {
-      if (!log.children.length) add("bot", B.greeting);
+      if (!log.children.length) addBot(B.greeting);
       input.focus();
     }
   }
 
   fab.addEventListener("click", function () { toggle(); });
-  panel.querySelector(".bot-head button").addEventListener("click", function () { toggle(false); fab.focus(); });
+  panel.querySelector(".bot-close").addEventListener("click", function () { toggle(false); fab.focus(); });
+  panel.querySelector(".bot-reload").addEventListener("click", reset);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") toggle(false); });
   form.addEventListener("submit", function (e) {
     e.preventDefault();
-    send(input.value);
+    var v = input.value;
     input.value = "";
+    send(v);
   });
 
-  /* Позволяет открыть чат ссылкой/кнопкой: <a href="#chat" data-open-bot> */
+  /* Открыть чат ссылкой или кнопкой: <a href="#chat" data-open-bot> */
   document.addEventListener("click", function (e) {
     var t = e.target.closest && e.target.closest("[data-open-bot]");
     if (t) { e.preventDefault(); toggle(true); }
   });
+
+  /* Для проверок и отладки */
+  window.__botMatch = function (t) { var m = match(t); return m ? m.id : null; };
 })();
