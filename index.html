@@ -9,23 +9,34 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Prata&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css?v=3">
-  <link rel="stylesheet" href="css/backgrounds.css?v=4">
+  <link rel="stylesheet" href="css/backgrounds.css?v=9">
 </head>
 <body data-page="home">
   <div id="site-header"></div>
 
   <main>
-    <section class="hero">
-      <div class="wrap">
-        <div>
+    <section class="hero hero-video" id="top">
+      <!-- Видео лежит в папке images. Если файл называется иначе — поменяйте имя в src. -->
+      <div class="hero-frame">
+        <video id="heroVideo" class="hero-vid" src="images/72497653_1793877079387973.mp4" muted loop playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback aria-hidden="true" tabindex="-1"></video>
+        <div class="hero-scrim"></div>
+      </div>
+      <div class="hero-content">
+        <div class="hero-copy">
+          <p class="eyebrow">Электроэпиляция в Москве</p>
           <h1>Волосы уходят по одному. Гладкость остаётся.</h1>
           <p class="lead">Электроэпиляция удаляет волосы любого цвета: светлые, рыжие, седые. Лазер с ними не справляется, игла работает с каждым волоском отдельно.</p>
           <div class="hero-actions">
-            <a class="btn" href="#book">Записаться на консультацию</a>
-            <a class="btn ghost" href="#prices">Посмотреть цены</a>
+            <a class="btn" href="#book">Перейти к записи на приём</a>
+            <a class="btn ghost" href="#prices">Цены</a>
           </div>
+          <ul class="hero-chips" aria-label="Быстрые разделы">
+            <li><a href="#how">Как проходит</a></li>
+            <li><a href="#prices">Услуги и цены</a></li>
+            <li><a href="#faq">Вопросы</a></li>
+            <li><a href="reviews.html">Отзывы</a></li>
+          </ul>
         </div>
-        <svg id="skin" class="skin" viewBox="0 0 400 380" role="img" aria-label="Рисунок: волоски на коже исчезают один за другим"></svg>
       </div>
     </section>
 
