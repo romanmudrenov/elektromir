@@ -4,11 +4,14 @@
   var S = window.SITE;
   var page = document.body.getAttribute("data-page");
 
-  /* Стили логотипа и фоновых окон подключаем сразу, чтобы шапка не «прыгала» */
-  var winCss = document.createElement("link");
-  winCss.rel = "stylesheet";
-  winCss.href = "css/windows.css?v=1";
-  document.head.appendChild(winCss);
+  /* Страховка от старого кэша стилей на страницах, где ссылка на стили ещё без новой версии */
+  var cacheFix = document.createElement("link");
+  cacheFix.rel = "stylesheet";
+  cacheFix.href = "css/backgrounds.css?v=9";
+  document.head.appendChild(cacheFix);
+
+  /* Логотип: файл лежит в папке images. Если загрузите логотип под другим именем — поменяйте здесь. */
+  var LOGO = "images/1000035674.jpg";
 
   var links = [
     ["home", "index.html", "Главная"],
@@ -21,47 +24,72 @@
     return '<a href="' + l[1] + '"' + (l[0] === page ? ' aria-current="page"' : "") + ">" + l[2] + "</a>";
   }).join("");
 
+  var bagIcon =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>';
+
+  var brandMark =
+    '<span class="brand-badge"><img src="' + LOGO + '" alt="" width="48" height="48"></span>' +
+    '<span class="brand-name">' + S.brand + "</span>";
+
   var header =
-    '<header class="site-header"><div class="wrap">' +
-    '<a class="logo" href="index.html" aria-label="' + S.brand + ' — на главную">' +
-    '<img src="images/logo.png" alt="' + S.brand + '" width="133" height="104"></a>' +
-    '<button class="burger" aria-expanded="false" aria-controls="nav">Меню</button>' +
-    '<nav class="nav" id="nav" aria-label="Основное меню">' + navHtml +
-    '<a class="cart-link" href="cart.html"' + (page === "cart" ? ' aria-current="page"' : "") + ">Корзина " +
+    '<header class="site-header"><div class="bar-wrap"><div class="bar">' +
+    '<a class="brand" href="index.html" aria-label="' + S.brand + ' — на главную">' + brandMark + "</a>" +
+    '<div class="bar-actions">' +
+    '<a class="btn small bar-cta" href="index.html#book">Записаться</a>' +
+    '<a class="bar-cart" href="cart.html" aria-label="Корзина"' + (page === "cart" ? ' aria-current="page"' : "") + ">" + bagIcon +
     '<span class="cart-count" data-n="0" id="cartCount">0</span></a>' +
-    "</nav></div></header>";
+    '<button class="burger" type="button" aria-label="Меню" aria-expanded="false" aria-controls="nav">Меню</button>' +
+    "</div></div>" +
+    '<nav class="nav" id="nav" aria-label="Основное меню">' + navHtml + "</nav>" +
+    "</div></header>";
+
+  var footerLinks = links.map(function (l) {
+    return '<li><a href="' + l[1] + '">' + l[2] + "</a></li>";
+  }).join("") + '<li><a href="cart.html">Корзина</a></li>';
 
   var footer =
-    '<footer class="site-footer"><div class="wrap"><div class="cols">' +
-    "<div><h3>" + S.brand + "</h3><p>Электроэпиляция в городе " + S.city + ". Удаляем волосы любого цвета.</p></div>" +
-    "<div><h3>Контакты</h3><p><a href=\"tel:" + S.phoneLink + '">' + S.phone + "</a><br>" +
-    '<a href="' + S.telegram + '" target="_blank" rel="noopener">Telegram: ' + S.telegramName + "</a><br>" +
-    '<a href="mailto:' + S.email + '">' + S.email + "</a><br>" + S.address + "<br>" + S.hours + "</p></div>" +
-    '<div><h3>Разделы</h3><p><a href="reviews.html">Отзывы</a><br><a href="portfolio.html">Портфолио</a><br>' +
-    '<a href="news.html">Новости</a><br><a href="cart.html">Корзина</a></p></div>' +
-    "</div><small>Есть противопоказания. Перед процедурой нужна консультация специалиста. " +
-    "© " + new Date().getFullYear() + " " + S.brand + "</small></div></footer>";
+    '<footer class="site-footer">' +
+    '<div class="wrap">' +
+    '<div class="cta-band"><div><h2>Готовы к гладкой коже?</h2>' +
+    "<p>Запишитесь на консультацию: мастер осмотрит зону, ответит на вопросы и составит план.</p></div>" +
+    '<div class="cta-actions"><a class="btn" href="index.html#book">Записаться на приём</a>' +
+    '<a class="btn ghost" href="' + S.telegram + '" target="_blank" rel="noopener">Написать в Telegram</a></div></div>' +
+    '<div class="foot-main">' +
+    '<div class="foot-brand"><a class="brand" href="index.html">' + brandMark + "</a>" +
+    "<p>Электроэпиляция в городе " + S.city + ". Работаем с волосами любого цвета: светлыми, рыжими и седыми.</p></div>" +
+    '<div><h3>Разделы</h3><ul class="foot-links">' + footerLinks + "</ul></div>" +
+    '<div><h3>Контакты</h3><ul class="foot-contacts">' +
+    '<li><a href="tel:' + S.phoneLink + '">' + S.phone + "</a></li>" +
+    '<li><a href="' + S.telegram + '" target="_blank" rel="noopener">Telegram ' + S.telegramName + "</a></li>" +
+    '<li><a href="mailto:' + S.email + '">' + S.email + "</a></li>" +
+    "<li><span>" + S.address + "</span></li>" +
+    "<li><span>" + S.hours + "</span></li></ul></div></div>" +
+    '<div class="foot-bottom"><small>Есть противопоказания. Перед процедурой нужна консультация специалиста. ' +
+    "© " + new Date().getFullYear() + " " + S.brand + "</small></div>" +
+    "</div></footer>";
 
   var top = document.getElementById("site-header");
   var bottom = document.getElementById("site-footer");
   if (top) top.outerHTML = header;
   if (bottom) bottom.outerHTML = footer;
 
+  /* Меню: открывается по кнопке, закрывается по клику вне меню и по Esc */
   var burger = document.querySelector(".burger");
   var nav = document.getElementById("nav");
-  if (burger && nav) {
-    burger.addEventListener("click", function () {
-      var open = nav.classList.toggle("open");
-      burger.setAttribute("aria-expanded", open ? "true" : "false");
-    });
+  function setMenu(open) {
+    if (!burger || !nav) return;
+    nav.classList.toggle("open", open);
+    burger.setAttribute("aria-expanded", open ? "true" : "false");
   }
-
-  /* Шапка уменьшается, когда страницу прокрутили */
-  var hdr = document.querySelector(".site-header");
-  if (hdr) {
-    var onScroll = function () { hdr.classList.toggle("scrolled", window.pageYOffset > 30); };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
+  if (burger && nav) {
+    burger.addEventListener("click", function () { setMenu(!nav.classList.contains("open")); });
+    document.addEventListener("click", function (e) {
+      if (!nav.classList.contains("open")) return;
+      if (e.target.closest && (e.target.closest(".nav") || e.target.closest(".burger"))) return;
+      setMenu(false);
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setMenu(false); });
   }
 
   /* Утилита для форматирования цены: 15300 -> "15 300 ₽" */
@@ -92,33 +120,8 @@
       .then(function (r) { if (!r.ok) throw new Error("bad status"); return r; });
   };
 
-  /* ---------- Подключение эффектов (искры, сердечки, плавное появление, переходы) ---------- */
-  var fxCss = document.createElement("link");
-  fxCss.rel = "stylesheet";
-  fxCss.href = "css/effects.css?v=1";
-  function loadEffects() {
-    if (window.__fxLoaded) return;
-    window.__fxLoaded = true;
-    var s = document.createElement("script");
-    s.src = "js/effects.js?v=1";
-    document.body.appendChild(s);
-  }
-  fxCss.onload = loadEffects;
-  fxCss.onerror = loadEffects;
-  document.head.appendChild(fxCss);
-
-  /* ---------- Премиальный слой: 3D-меню, объёмные иконки, неоновое свечение, параллакс ---------- */
-  var premCss = document.createElement("link");
-  premCss.rel = "stylesheet";
-  premCss.href = "css/premium.css?v=1";
-  function loadPremium() {
-    if (window.__premLoaded) return;
-    window.__premLoaded = true;
-    var s = document.createElement("script");
-    s.src = "js/premium.js?v=1";
-    document.body.appendChild(s);
-  }
-  premCss.onload = loadPremium;
-  premCss.onerror = loadPremium;
-  document.head.appendChild(premCss);
+  /* Эффекты: лепестки, сердечки, объёмные иконки, наклон окон, видео. Один файл, стили уже в backgrounds.css */
+  var fx = document.createElement("script");
+  fx.src = "js/effects.js?v=3";
+  document.body.appendChild(fx);
 })();
