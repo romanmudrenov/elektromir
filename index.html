@@ -9,18 +9,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Prata&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css?v=3">
-  <link rel="stylesheet" href="css/backgrounds.css?v=9">
+  <link rel="stylesheet" href="css/backgrounds.css?v=10">
 </head>
 <body data-page="home">
   <div id="site-header"></div>
 
   <main>
-    <section class="hero hero-video" id="top">
-      <!-- Видео лежит в папке images. Если файл называется иначе — поменяйте имя в src. -->
-      <div class="hero-frame">
-        <video id="heroVideo" class="hero-vid" src="images/72497653_1793877079387973.mp4" muted loop playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback aria-hidden="true" tabindex="-1"></video>
-        <div class="hero-scrim"></div>
-      </div>
+    <section class="hero hero-neon" id="top">
+      <canvas id="heroWaves" class="hero-waves" aria-hidden="true"></canvas>
       <div class="hero-content">
         <div class="hero-copy">
           <p class="eyebrow">Электроэпиляция в Москве</p>
