@@ -1,7 +1,7 @@
-/* Эффекты сайта «Электромир»: лепестки и сердечки, объёмные иконки, наклон стеклянных окон,
-   плавное появление блоков, видео на первом экране.
-   Стили лежат в css/backgrounds.css. Включается из js/layout.js.
-   Легче для телефона: частицы рисуются готовыми картинками, цикл анимации спит, когда на экране пусто. */
+/* Эффекты сайта «Электромир»: лепестки и сердечки, неоновые волны на главной, объёмные иконки,
+   плавное появление блоков. Стили лежат в css/backgrounds.css. Включается из js/layout.js.
+   Легче для телефона: частицы рисуются готовыми картинками, цикл анимации спит, когда на экране пусто.
+   Всё можно отключить в меню «Настройки». */
 (function () {
   "use strict";
 
@@ -12,6 +12,10 @@
   function rnd(a, b) { return a + Math.random() * (b - a); }
   function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function allowed(key) {
+    var c = window.SETTINGS && window.SETTINGS.get();
+    return !c || !!c[key];
+  }
   function center(el) {
     var r = el.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -156,6 +160,7 @@
 
       /* Взрыв из лепестков и сердечек (тап, клик) */
       burst = function (x, y, n) {
+        if (!allowed("petals")) return;
         for (var i = 0; i < n; i++) {
           if (i % 2 === 0) {
             add(make("petal", x, y, {
@@ -173,6 +178,7 @@
 
       /* Фонтан при успешной отправке заявки */
       fountain = function (x, y) {
+        if (!allowed("petals")) return;
         var wave = function (n) {
           for (var i = 0; i < n; i++) {
             add(make("heart", x, y, {
@@ -191,6 +197,7 @@
 
       /* Лёгкий след при проведении пальцем */
       trailOne = function (x, y) {
+        if (!allowed("petals")) return;
         if (Math.random() < 0.5) {
           add(make("petal", x, y, { vx: rnd(-0.5, 0.5), vy: rnd(0.2, 0.9), g: 0.02, drag: 0.98, size: rnd(11, 16), life: rnd(45, 70), sway: 0.3, maxA: 0.9 }));
         } else {
@@ -214,7 +221,7 @@
         }));
       };
       var tick = function () {
-        if (!document.hidden) {
+        if (!document.hidden && allowed("petals")) {
           if (Math.random() < 0.55) fallPetal(); else riseHeart();
           if (!isTouch && Math.random() < 0.35) { if (Math.random() < 0.5) fallPetal(); else riseHeart(); }
         }
@@ -365,75 +372,6 @@
   }
 
   /* =====================================================================
-     4. СТЕКЛЯННЫЕ ОКНА: лёгкий наклон и блик за курсором и пальцем
-     ===================================================================== */
-  var TILT_SEL = ".review,.product,.case,.news-item,.contact-card,.summary";
-  var activeCard = null, cpx = 0, cpy = 0, craf = 0;
-
-  var makeTilt = function (el) {
-    if (el.__tilt) return;
-    el.__tilt = true;
-    el.classList.add("tilt");
-    var gl = document.createElement("span");
-    gl.className = "glare";
-    gl.setAttribute("aria-hidden", "true");
-    el.appendChild(gl);
-    el.__glare = gl;
-  };
-
-  var releaseCard = function () {
-    if (!activeCard) return;
-    var c = activeCard;
-    activeCard = null;
-    c.classList.remove("tilting");
-    c.style.setProperty("--rx", "0deg");
-    c.style.setProperty("--ry", "0deg");
-    if (c.__glare) c.__glare.style.transform = "";
-  };
-
-  var cardFrame = function () {
-    craf = 0;
-    if (!activeCard) return;
-    var r = activeCard.getBoundingClientRect();
-    var nx = clamp((cpx - r.left) / r.width, 0, 1) - 0.5;
-    var ny = clamp((cpy - r.top) / r.height, 0, 1) - 0.5;
-    var max = (r.width > 560 ? 2.6 : 6) * (isTouch ? 0.8 : 1);
-    activeCard.style.setProperty("--rx", (-ny * 2 * max).toFixed(2) + "deg");
-    activeCard.style.setProperty("--ry", (nx * 2 * max).toFixed(2) + "deg");
-    if (activeCard.__glare) activeCard.__glare.style.transform = "translate(" + (nx * 50).toFixed(1) + "%," + (ny * 50).toFixed(1) + "%)";
-  };
-
-  var cardMove = function (target, x, y) {
-    var c = target && target.closest ? target.closest(".tilt") : null;
-    if (c && target.closest("input,textarea,select")) c = null;
-    if (c !== activeCard) {
-      releaseCard();
-      activeCard = c;
-      if (c) c.classList.add("tilting");
-    }
-    if (activeCard) {
-      cpx = x; cpy = y;
-      if (!craf) craf = requestAnimationFrame(cardFrame);
-    }
-  };
-
-  if (!reduce) {
-    document.addEventListener("pointermove", function (e) {
-      if (e.pointerType === "touch") return;
-      cardMove(e.target, e.clientX, e.clientY);
-    }, { passive: true });
-    var touchCard = function (e) {
-      var t = e.touches && e.touches[0];
-      if (t) cardMove(e.target, t.clientX, t.clientY);
-    };
-    document.addEventListener("touchstart", touchCard, { passive: true });
-    document.addEventListener("touchmove", touchCard, { passive: true });
-    document.addEventListener("touchend", releaseCard, { passive: true });
-    document.addEventListener("touchcancel", releaseCard, { passive: true });
-    document.documentElement.addEventListener("mouseleave", releaseCard);
-  }
-
-  /* =====================================================================
      5. ПЛАВНОЕ ПОЯВЛЕНИЕ БЛОКОВ
      ===================================================================== */
   var SELECTORS = [
@@ -474,7 +412,6 @@
   }
 
   var scan = function () {
-    Array.prototype.forEach.call(document.querySelectorAll(TILT_SEL), makeTilt);
     if (io) Array.prototype.forEach.call(document.querySelectorAll(SELECTORS), register);
   };
   scan();
@@ -511,55 +448,142 @@
           var btn = form && form.querySelector("button[type=submit]");
           var c = center(btn || el);
           fountain(c.x, c.y);
+          if (window.Sound) window.Sound.tap("bell");
         }
       });
     }).observe(document.body, { attributes: true, attributeFilter: ["class"], subtree: true });
   }
 
   /* =====================================================================
-     7. ВИДЕО НА ПЕРВОМ ЭКРАНЕ
+     7. НЕОНОВЫЕ 3D-ВОЛНЫ НА ПЕРВОМ ЭКРАНЕ (за текстом)
      ===================================================================== */
-  var hv = document.getElementById("heroVideo");
-  var heroFrame = document.querySelector(".hero-frame");
-  if (hv) {
-    var conn = navigator.connection || {};
-    var noVideo = reduce || conn.saveData === true;
-    var play = function () {
-      if (noVideo || document.hidden) return;
-      var p = hv.play();
-      if (p && p.catch) p.catch(function () {});
+  var wc = document.getElementById("heroWaves");
+  if (wc && wc.getContext) {
+    var wx = wc.getContext("2d");
+    var wdpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    var ww = 1, wh = 1, wraf = 0, wlast = 0, wvisible = true;
+    var WCOLS = ["255,56,160", "184,86,255", "255,120,190", "110,140,255", "255,70,170"];
+    var ROWS = isTouch ? 7 : 10;
+    var rows = [];
+    for (var j = 0; j < ROWS; j++) {
+      var dd = j / (ROWS - 1);
+      rows.push({
+        d: dd, col: WCOLS[j % WCOLS.length],
+        k1: rnd(1.1, 2.1) + dd * 0.6, k2: rnd(2.4, 4.2),
+        s1: rnd(0.5, 1.0) * (j % 2 ? 1 : -1), s2: rnd(0.7, 1.4),
+        p1: rnd(0, 6.283), p2: rnd(0, 6.283), am: rnd(0.75, 1.25), grad: null
+      });
+    }
+
+    var sizeWaves = function () {
+      var r = wc.getBoundingClientRect();
+      ww = Math.max(1, r.width);
+      wh = Math.max(1, r.height);
+      wc.width = Math.round(ww * wdpr);
+      wc.height = Math.round(wh * wdpr);
+      rows.forEach(function (row) { row.grad = null; row.fgrad = null; });
     };
-    if (noVideo) { hv.removeAttribute("autoplay"); hv.pause(); }
-    else play();
+
+    var rowFill = function (row, x0, x1) {
+      if (row.fgrad) return row.fgrad;
+      var g = wx.createLinearGradient(x0, 0, x1, 0);
+      var a = (0.2 + 0.22 * row.d).toFixed(2);
+      g.addColorStop(0, "rgba(255,238,247,0)");
+      g.addColorStop(0.2, "rgba(255,238,247," + a + ")");
+      g.addColorStop(0.8, "rgba(255,238,247," + a + ")");
+      g.addColorStop(1, "rgba(255,238,247,0)");
+      row.fgrad = g;
+      return g;
+    };
+
+    var rowGrad = function (row, x0, x1) {
+      if (row.grad) return row.grad;
+      var g = wx.createLinearGradient(x0, 0, x1, 0);
+      var a = (0.25 + 0.7 * row.d).toFixed(2);
+      g.addColorStop(0, "rgba(" + row.col + ",0)");
+      g.addColorStop(0.18, "rgba(" + row.col + "," + a + ")");
+      g.addColorStop(0.82, "rgba(" + row.col + "," + a + ")");
+      g.addColorStop(1, "rgba(" + row.col + ",0)");
+      row.grad = g;
+      return g;
+    };
+
+    var drawWaves = function (time) {
+      wx.setTransform(wdpr, 0, 0, wdpr, 0, 0);
+      wx.clearRect(0, 0, ww, wh);
+      var step = ww < 500 ? 9 : 7;
+      rows.forEach(function (row) {
+        var d = row.d, p = Math.pow(d, 1.35);
+        var cy = wh * (0.4 + 0.52 * p);
+        var amp = wh * (0.022 + 0.09 * p) * row.am;
+        var span = 0.62 + 0.55 * d;
+        var x0 = ww * (0.5 - span / 2), x1 = ww * (0.5 + span / 2);
+        var n = Math.max(8, Math.round((x1 - x0) / step));
+        var path = new Path2D();
+        for (var i = 0; i <= n; i++) {
+          var u = i / n, x = x0 + (x1 - x0) * u;
+          var env = 0.35 + 0.65 * Math.sin(Math.PI * u);
+          var y = cy + amp * env * (
+            Math.sin(u * row.k1 * 6.283 + time * row.s1 + row.p1) * 0.68 +
+            Math.sin(u * row.k2 * 6.283 - time * row.s2 + row.p2) * 0.32);
+          if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
+        }
+        var area = new Path2D(path);
+        area.lineTo(x1, wh);
+        area.lineTo(x0, wh);
+        area.closePath();
+
+        wx.globalAlpha = 1;
+        wx.fillStyle = rowFill(row, x0, x1);
+        wx.fill(area);
+
+        wx.strokeStyle = rowGrad(row, x0, x1);
+        wx.lineJoin = "round";
+        wx.lineCap = "round";
+        wx.globalAlpha = 0.18;
+        wx.lineWidth = 6 + 8 * d;
+        wx.stroke(path);
+        wx.globalAlpha = 1;
+        wx.lineWidth = 1 + 2.4 * d;
+        wx.stroke(path);
+      });
+      wx.globalAlpha = 1;
+    };
+
+    var wavesOn = function () { return !reduce && allowed("waves"); };
+    var waveFrame = function (t) {
+      wraf = requestAnimationFrame(waveFrame);
+      if (t - wlast < (isTouch ? 33 : 20)) return;
+      wlast = t;
+      drawWaves(t * 0.001);
+    };
+    var startWaves = function () {
+      if (!wraf && wavesOn() && wvisible && !document.hidden) wraf = requestAnimationFrame(waveFrame);
+    };
+    var stopWaves = function () {
+      if (wraf) { cancelAnimationFrame(wraf); wraf = 0; }
+    };
+
+    sizeWaves();
+    drawWaves(2);
+    startWaves();
+
+    var rz;
+    window.addEventListener("resize", function () {
+      clearTimeout(rz);
+      rz = setTimeout(function () { sizeWaves(); if (!wraf) drawWaves(2); }, 150);
+    });
+    document.addEventListener("visibilitychange", function () { if (document.hidden) stopWaves(); else startWaves(); });
+    document.addEventListener("settings:change", function () {
+      if (wavesOn()) startWaves(); else { stopWaves(); drawWaves(2); }
+    });
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) { if (en.isIntersecting) play(); else hv.pause(); });
-      }, { threshold: 0.05 }).observe(hv);
+        entries.forEach(function (en) {
+          wvisible = en.isIntersecting;
+          if (wvisible) startWaves(); else stopWaves();
+        });
+      }, { threshold: 0.02 }).observe(wc);
     }
-    document.addEventListener("visibilitychange", function () { if (document.hidden) hv.pause(); else play(); });
-    /* на телефоне иногда нужен первый тап, чтобы видео запустилось */
-    document.addEventListener("touchstart", play, { once: true, passive: true });
-  }
-
-  /* Рамка с видео на ПК слегка наклоняется и плавно смещается при прокрутке */
-  var desk = window.matchMedia && window.matchMedia("(min-width: 900px)");
-  if (heroFrame && desk && desk.matches) makeTilt(heroFrame);
-  if (heroFrame && !reduce) {
-    var copy = document.querySelector(".hero-copy");
-    var pbusy = false;
-    var par = function () {
-      pbusy = false;
-      var y = window.pageYOffset || 0;
-      if (desk && desk.matches && y < 900) {
-        heroFrame.style.translate = "0 " + (y * 0.1).toFixed(1) + "px";
-        if (copy) copy.style.translate = "0 " + (y * 0.04).toFixed(1) + "px";
-      } else {
-        heroFrame.style.translate = "";
-        if (copy) copy.style.translate = "";
-      }
-    };
-    window.addEventListener("scroll", function () {
-      if (!pbusy) { pbusy = true; requestAnimationFrame(par); }
-    }, { passive: true });
   }
 })();
