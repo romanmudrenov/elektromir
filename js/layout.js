@@ -1,4 +1,4 @@
-/* Подставляет шапку и подвал на все страницы.
+/* Подставляет шапку и подвал на все страницы, управляет меню и настройками.
    Страница сообщает о себе через <body data-page="home|reviews|portfolio|news|cart"> */
 (function () {
   var S = window.SITE;
@@ -7,12 +7,52 @@
   /* Страховка от старого кэша стилей на страницах, где ссылка на стили ещё без новой версии */
   var cacheFix = document.createElement("link");
   cacheFix.rel = "stylesheet";
-  cacheFix.href = "css/backgrounds.css?v=9";
+  cacheFix.href = "css/backgrounds.css?v=10";
   document.head.appendChild(cacheFix);
 
   /* Логотип: файл лежит в папке images. Если загрузите логотип под другим именем — поменяйте здесь. */
   var LOGO = "images/1000035674.jpg";
 
+  /* ---------------------------------------------------------------
+     НАСТРОЙКИ (звук и внешний вид). Хранятся в браузере посетителя.
+     --------------------------------------------------------------- */
+  var KEY = "elektromir_settings_v1";
+  var DEFAULTS = { sound: true, vol: 0.5, tap: true, scroll: true, haptic: true, petals: true, waves: true, float: true, big: false };
+  var cfg = {};
+  (function () {
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+    Object.keys(DEFAULTS).forEach(function (k) { cfg[k] = saved.hasOwnProperty(k) ? saved[k] : DEFAULTS[k]; });
+  })();
+
+  function applyClasses() {
+    var h = document.documentElement.classList;
+    h.toggle("no-float", !cfg.float);
+    h.toggle("no-petals", !cfg.petals);
+    h.toggle("no-waves", !cfg.waves);
+    h.toggle("big-text", !!cfg.big);
+  }
+  applyClasses();
+
+  window.SETTINGS = {
+    get: function () { return cfg; },
+    set: function (k, v) {
+      cfg[k] = v;
+      try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (e) {}
+      applyClasses();
+      document.dispatchEvent(new CustomEvent("settings:change", { detail: cfg }));
+    },
+    reset: function () {
+      Object.keys(DEFAULTS).forEach(function (k) { cfg[k] = DEFAULTS[k]; });
+      try { localStorage.setItem(KEY, JSON.stringify(cfg)); } catch (e) {}
+      applyClasses();
+      document.dispatchEvent(new CustomEvent("settings:change", { detail: cfg }));
+    }
+  };
+
+  /* ---------------------------------------------------------------
+     РАЗМЕТКА
+     --------------------------------------------------------------- */
   var links = [
     ["home", "index.html", "Главная"],
     ["reviews", "reviews.html", "Отзывы"],
@@ -20,9 +60,46 @@
     ["news", "news.html", "Новости"]
   ];
 
-  var navHtml = links.map(function (l) {
-    return '<a href="' + l[1] + '"' + (l[0] === page ? ' aria-current="page"' : "") + ">" + l[2] + "</a>";
+  var navLinks = links.map(function (l, i) {
+    return '<a class="nav-block" style="--i:' + i + '" href="' + l[1] + '"' + (l[0] === page ? ' aria-current="page"' : "") + ">" + l[2] + "</a>";
   }).join("");
+
+  function folder(id, label, idx, inner) {
+    return '<div class="nav-group" style="--i:' + idx + '">' +
+      '<button class="nav-block nav-folder" type="button" aria-expanded="false" aria-controls="sub-' + id + '">' + label + '<span class="chev" aria-hidden="true"></span></button>' +
+      '<div class="nav-sub" id="sub-' + id + '"><div class="nav-sub-inner">' + inner + "</div></div></div>";
+  }
+  function sw(key, label, hint) {
+    return '<div class="set-row"><span>' + label + (hint ? "<small>" + hint + "</small>" : "") + "</span>" +
+      '<button class="switch" type="button" role="switch" aria-checked="false" aria-label="' + label + '" data-set="' + key + '"></button></div>';
+  }
+
+  var funInner =
+    '<span class="sub-item" aria-disabled="true">Радио <span class="soon-badge">скоро</span></span>' +
+    '<span class="sub-item" aria-disabled="true">Игры <span class="soon-badge">скоро</span></span>';
+
+  var settingsInner =
+    '<div class="set-title">Звук</div>' +
+    sw("sound", "Звук на сайте") +
+    '<div class="set-row col"><div class="row-top"><span>Громкость</span><span id="volVal">50%</span></div>' +
+    '<input class="set-range" type="range" min="0" max="1" step="0.05" data-range="vol" aria-label="Громкость"></div>' +
+    sw("tap", "Звук касаний", "щелчки по кнопкам") +
+    sw("scroll", "Звук прокрутки", "тихий тик при скролле") +
+    '<div id="hapticRow">' + sw("haptic", "Вибрация", "отклик при касании") + "</div>" +
+    '<div class="set-title">Внешний вид</div>' +
+    '<div class="seg" role="group" aria-label="Режим оформления">' +
+    '<button type="button" data-mode="full" aria-pressed="false">Полный</button>' +
+    '<button type="button" data-mode="lite" aria-pressed="false">Лёгкий</button></div>' +
+    sw("petals", "Лепестки и сердечки") +
+    sw("waves", "Волны на главной") +
+    sw("float", "Парение блоков") +
+    sw("big", "Крупный текст") +
+    '<button class="set-reset" type="button" data-reset>Сбросить настройки</button>';
+
+  var navHtml =
+    navLinks +
+    folder("fun", "Развлечения", 4, funInner) +
+    folder("set", "Настройки", 5, settingsInner);
 
   var bagIcon =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -74,37 +151,113 @@
   if (top) top.outerHTML = header;
   if (bottom) bottom.outerHTML = footer;
 
-  /* Меню: открывается по кнопке, закрывается по клику вне меню и по Esc */
+  /* ---------------------------------------------------------------
+     МЕНЮ И НАСТРОЙКИ: поведение
+     --------------------------------------------------------------- */
   var burger = document.querySelector(".burger");
   var nav = document.getElementById("nav");
+
   function setMenu(open) {
     if (!burger || !nav) return;
     nav.classList.toggle("open", open);
+    document.documentElement.classList.toggle("menu-open", open);
     burger.setAttribute("aria-expanded", open ? "true" : "false");
   }
+
+  function renderSettings() {
+    if (!nav) return;
+    Array.prototype.forEach.call(nav.querySelectorAll("[data-set]"), function (b) {
+      b.setAttribute("aria-checked", cfg[b.getAttribute("data-set")] ? "true" : "false");
+    });
+    var range = nav.querySelector("[data-range=vol]");
+    if (range) range.value = cfg.vol;
+    var vv = document.getElementById("volVal");
+    if (vv) vv.textContent = Math.round(cfg.vol * 100) + "%";
+    var full = cfg.petals && cfg.waves && cfg.float;
+    var lite = !cfg.petals && !cfg.waves && !cfg.float;
+    var mf = nav.querySelector("[data-mode=full]"), ml = nav.querySelector("[data-mode=lite]");
+    if (mf) mf.setAttribute("aria-pressed", full ? "true" : "false");
+    if (ml) ml.setAttribute("aria-pressed", lite ? "true" : "false");
+    var hr = document.getElementById("hapticRow");
+    if (hr && !navigator.vibrate) hr.style.display = "none";
+  }
+
   if (burger && nav) {
+    renderSettings();
+
     burger.addEventListener("click", function () { setMenu(!nav.classList.contains("open")); });
+
     document.addEventListener("click", function (e) {
       if (!nav.classList.contains("open")) return;
       if (e.target.closest && (e.target.closest(".nav") || e.target.closest(".burger"))) return;
       setMenu(false);
     });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") setMenu(false); });
+
+    nav.addEventListener("click", function (e) {
+      var t = e.target;
+      var fold = t.closest(".nav-folder");
+      if (fold) {
+        var group = fold.parentNode;
+        var willOpen = !group.classList.contains("open");
+        Array.prototype.forEach.call(nav.querySelectorAll(".nav-group"), function (g) {
+          g.classList.remove("open");
+          g.querySelector(".nav-folder").setAttribute("aria-expanded", "false");
+        });
+        if (willOpen) {
+          group.classList.add("open");
+          fold.setAttribute("aria-expanded", "true");
+          setTimeout(function () { fold.scrollIntoView({ block: "nearest", behavior: "smooth" }); }, 120);
+        }
+        return;
+      }
+      var s = t.closest("[data-set]");
+      if (s) {
+        var key = s.getAttribute("data-set");
+        window.SETTINGS.set(key, !cfg[key]);
+        renderSettings();
+        return;
+      }
+      var m = t.closest("[data-mode]");
+      if (m) {
+        var on = m.getAttribute("data-mode") === "full";
+        window.SETTINGS.set("petals", on);
+        window.SETTINGS.set("waves", on);
+        window.SETTINGS.set("float", on);
+        renderSettings();
+        return;
+      }
+      if (t.closest("[data-reset]")) {
+        window.SETTINGS.reset();
+        renderSettings();
+      }
+    });
+
+    nav.addEventListener("input", function (e) {
+      if (e.target.matches("[data-range=vol]")) {
+        window.SETTINGS.set("vol", parseFloat(e.target.value));
+        var vv = document.getElementById("volVal");
+        if (vv) vv.textContent = Math.round(cfg.vol * 100) + "%";
+      }
+    });
+    nav.addEventListener("change", function (e) {
+      if (e.target.matches("[data-range=vol]") && window.Sound) window.Sound.tap("bubble");
+    });
   }
 
-  /* Утилита для форматирования цены: 15300 -> "15 300 ₽" */
+  /* ---------------------------------------------------------------
+     УТИЛИТЫ
+     --------------------------------------------------------------- */
   window.formatPrice = function (n) {
     return n.toLocaleString("ru-RU") + " ₽";
   };
 
-  /* Утилита экранирования текста, чтобы в HTML не попал чужой код */
   window.esc = function (s) {
     var d = document.createElement("div");
     d.textContent = String(s);
     return d.innerHTML;
   };
 
-  /* Отправка формы: на endpoint, если он задан; иначе — демо-режим */
   window.sendForm = function (type, payload) {
     var body = JSON.stringify({ type: type, data: payload, at: new Date().toISOString() });
     if (!S.formEndpoint) {
@@ -120,8 +273,10 @@
       .then(function (r) { if (!r.ok) throw new Error("bad status"); return r; });
   };
 
-  /* Эффекты: лепестки, сердечки, объёмные иконки, наклон окон, видео. Один файл, стили уже в backgrounds.css */
-  var fx = document.createElement("script");
-  fx.src = "js/effects.js?v=3";
-  document.body.appendChild(fx);
+  /* Звуки и эффекты: два отдельных файла, стили уже в backgrounds.css */
+  ["js/sound.js?v=1", "js/effects.js?v=4"].forEach(function (src) {
+    var sc = document.createElement("script");
+    sc.src = src;
+    document.body.appendChild(sc);
+  });
 })();
