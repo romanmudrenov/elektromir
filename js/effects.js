@@ -1,7 +1,7 @@
-/* Эффекты сайта «Электромир»: лепестки и сердечки, неоновые волны на главной, объёмные иконки,
-   плавное появление блоков. Стили лежат в css/backgrounds.css. Включается из js/layout.js.
-   Легче для телефона: частицы рисуются готовыми картинками, цикл анимации спит, когда на экране пусто.
-   Всё можно отключить в меню «Настройки». */
+/* Эффекты сайта «Электромир»: лепестки и сердечки, плавные волны (главная и подвал), объёмные иконки,
+   плавное появление блоков, раскачивание блоков при прокрутке. Стили лежат в css/backgrounds.css.
+   Включается из js/layout.js. Легче для телефона: частицы рисуются готовыми картинками,
+   цикл анимации спит, когда на экране пусто. Всё можно отключить в меню «Настройки». */
 (function () {
   "use strict";
 
@@ -455,135 +455,271 @@
   }
 
   /* =====================================================================
-     7. НЕОНОВЫЕ 3D-ВОЛНЫ НА ПЕРВОМ ЭКРАНЕ (за текстом)
+     7. ПЛАВНЫЕ ВОЛНЫ: шёлковые ленты на главной и неон в подвале
      ===================================================================== */
-  var wc = document.getElementById("heroWaves");
-  if (wc && wc.getContext) {
-    var wx = wc.getContext("2d");
-    var wdpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    var ww = 1, wh = 1, wraf = 0, wlast = 0, wvisible = true;
-    var WCOLS = ["255,56,160", "184,86,255", "255,120,190", "110,140,255", "255,70,170"];
-    var ROWS = isTouch ? 7 : 10;
-    var rows = [];
-    for (var j = 0; j < ROWS; j++) {
-      var dd = j / (ROWS - 1);
-      rows.push({
-        d: dd, col: WCOLS[j % WCOLS.length],
-        k1: rnd(1.1, 2.1) + dd * 0.6, k2: rnd(2.4, 4.2),
-        s1: rnd(0.5, 1.0) * (j % 2 ? 1 : -1), s2: rnd(0.7, 1.4),
-        p1: rnd(0, 6.283), p2: rnd(0, 6.283), am: rnd(0.75, 1.25), grad: null
-      });
+  var TAU = 6.283185;
+
+  /* Плавная кривая через точки (без изломов) */
+  function smoothLine(cx, pts, move) {
+    if (move) cx.moveTo(pts[0][0], pts[0][1]); else cx.lineTo(pts[0][0], pts[0][1]);
+    for (var i = 1; i < pts.length - 1; i++) {
+      cx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
     }
+    var l = pts[pts.length - 1];
+    cx.lineTo(l[0], l[1]);
+  }
 
-    var sizeWaves = function () {
-      var r = wc.getBoundingClientRect();
-      ww = Math.max(1, r.width);
-      wh = Math.max(1, r.height);
-      wc.width = Math.round(ww * wdpr);
-      wc.height = Math.round(wh * wdpr);
-      rows.forEach(function (row) { row.grad = null; row.fgrad = null; });
-    };
+  /* Общий движок сцены: размер, 30 кадров/с, пауза вне экрана, настройки */
+  function Scene(canvas, draw, minFrameMs) {
+    var cx = canvas.getContext("2d");
+    if (!cx || !window.requestAnimationFrame) return;
+    var sd = Math.min(window.devicePixelRatio || 1, 1.5);
+    var w = 1, h = 1, raf = 0, last = 0, vis = true;
 
-    var rowFill = function (row, x0, x1) {
-      if (row.fgrad) return row.fgrad;
-      var g = wx.createLinearGradient(x0, 0, x1, 0);
-      var a = (0.2 + 0.22 * row.d).toFixed(2);
-      g.addColorStop(0, "rgba(255,238,247,0)");
-      g.addColorStop(0.2, "rgba(255,238,247," + a + ")");
-      g.addColorStop(0.8, "rgba(255,238,247," + a + ")");
-      g.addColorStop(1, "rgba(255,238,247,0)");
-      row.fgrad = g;
-      return g;
-    };
+    function size() {
+      var r = canvas.getBoundingClientRect();
+      w = Math.max(1, r.width); h = Math.max(1, r.height);
+      canvas.width = Math.round(w * sd);
+      canvas.height = Math.round(h * sd);
+    }
+    function paint(time) {
+      cx.setTransform(sd, 0, 0, sd, 0, 0);
+      cx.clearRect(0, 0, w, h);
+      draw(cx, w, h, time);
+      cx.globalCompositeOperation = "source-over";
+      cx.globalAlpha = 1;
+    }
+    function on() { return !reduce && allowed("waves"); }
+    function frame(t) {
+      raf = requestAnimationFrame(frame);
+      if (t - last < minFrameMs) return;
+      last = t;
+      paint(t * 0.001);
+    }
+    function start() { if (!raf && on() && vis && !document.hidden) raf = requestAnimationFrame(frame); }
+    function stop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
 
-    var rowGrad = function (row, x0, x1) {
-      if (row.grad) return row.grad;
-      var g = wx.createLinearGradient(x0, 0, x1, 0);
-      var a = (0.25 + 0.7 * row.d).toFixed(2);
-      g.addColorStop(0, "rgba(" + row.col + ",0)");
-      g.addColorStop(0.18, "rgba(" + row.col + "," + a + ")");
-      g.addColorStop(0.82, "rgba(" + row.col + "," + a + ")");
-      g.addColorStop(1, "rgba(" + row.col + ",0)");
-      row.grad = g;
-      return g;
-    };
+    size();
+    paint(2);
+    start();
 
-    var drawWaves = function (time) {
-      wx.setTransform(wdpr, 0, 0, wdpr, 0, 0);
-      wx.clearRect(0, 0, ww, wh);
-      var step = ww < 500 ? 9 : 7;
-      rows.forEach(function (row) {
-        var d = row.d, p = Math.pow(d, 1.35);
-        var cy = wh * (0.4 + 0.52 * p);
-        var amp = wh * (0.022 + 0.09 * p) * row.am;
-        var span = 0.62 + 0.55 * d;
-        var x0 = ww * (0.5 - span / 2), x1 = ww * (0.5 + span / 2);
-        var n = Math.max(8, Math.round((x1 - x0) / step));
-        var path = new Path2D();
-        for (var i = 0; i <= n; i++) {
-          var u = i / n, x = x0 + (x1 - x0) * u;
-          var env = 0.35 + 0.65 * Math.sin(Math.PI * u);
-          var y = cy + amp * env * (
-            Math.sin(u * row.k1 * 6.283 + time * row.s1 + row.p1) * 0.68 +
-            Math.sin(u * row.k2 * 6.283 - time * row.s2 + row.p2) * 0.32);
-          if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
-        }
-        var area = new Path2D(path);
-        area.lineTo(x1, wh);
-        area.lineTo(x0, wh);
-        area.closePath();
-
-        wx.globalAlpha = 1;
-        wx.fillStyle = rowFill(row, x0, x1);
-        wx.fill(area);
-
-        wx.strokeStyle = rowGrad(row, x0, x1);
-        wx.lineJoin = "round";
-        wx.lineCap = "round";
-        wx.globalAlpha = 0.18;
-        wx.lineWidth = 6 + 8 * d;
-        wx.stroke(path);
-        wx.globalAlpha = 1;
-        wx.lineWidth = 1 + 2.4 * d;
-        wx.stroke(path);
-      });
-      wx.globalAlpha = 1;
-    };
-
-    var wavesOn = function () { return !reduce && allowed("waves"); };
-    var waveFrame = function (t) {
-      wraf = requestAnimationFrame(waveFrame);
-      if (t - wlast < (isTouch ? 33 : 20)) return;
-      wlast = t;
-      drawWaves(t * 0.001);
-    };
-    var startWaves = function () {
-      if (!wraf && wavesOn() && wvisible && !document.hidden) wraf = requestAnimationFrame(waveFrame);
-    };
-    var stopWaves = function () {
-      if (wraf) { cancelAnimationFrame(wraf); wraf = 0; }
-    };
-
-    sizeWaves();
-    drawWaves(2);
-    startWaves();
-
-    var rz;
-    window.addEventListener("resize", function () {
-      clearTimeout(rz);
-      rz = setTimeout(function () { sizeWaves(); if (!wraf) drawWaves(2); }, 150);
-    });
-    document.addEventListener("visibilitychange", function () { if (document.hidden) stopWaves(); else startWaves(); });
-    document.addEventListener("settings:change", function () {
-      if (wavesOn()) startWaves(); else { stopWaves(); drawWaves(2); }
-    });
+    if (window.ResizeObserver) {
+      new ResizeObserver(function () { size(); if (!raf) paint(2); }).observe(canvas);
+    } else {
+      window.addEventListener("resize", function () { size(); if (!raf) paint(2); });
+    }
+    document.addEventListener("visibilitychange", function () { if (document.hidden) stop(); else start(); });
+    document.addEventListener("settings:change", function () { if (on()) start(); else { stop(); paint(2); } });
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          wvisible = en.isIntersecting;
-          if (wvisible) startWaves(); else stopWaves();
-        });
-      }, { threshold: 0.02 }).observe(wc);
+        entries.forEach(function (en) { vis = en.isIntersecting; if (vis) start(); else stop(); });
+      }, { threshold: 0.01 }).observe(canvas);
     }
   }
+
+  /* --- Главная: 5 шёлковых лент в стиле PlayStation, от края до края --- */
+  var HERO_WAVES = [
+    { y: 0.50, a: 0.050, f: 0.80, s: 0.42, p: 0.3, th: 0.090, c1: "255,100,180", c2: "190,100,255" },
+    { y: 0.62, a: 0.070, f: 1.10, s: -0.36, p: 1.9, th: 0.110, c1: "190,100,255", c2: "255,130,200" },
+    { y: 0.74, a: 0.050, f: 0.70, s: 0.30, p: 3.2, th: 0.085, c1: "255,140,205", c2: "140,165,255" },
+    { y: 0.84, a: 0.080, f: 1.00, s: -0.48, p: 4.5, th: 0.120, c1: "140,165,255", c2: "255,95,180" },
+    { y: 0.93, a: 0.055, f: 1.35, s: 0.34, p: 5.7, th: 0.095, c1: "255,75,170", c2: "200,110,255" }
+  ];
+
+  var drawHero = function (cx, w, h, time) {
+    var step = w < 520 ? 10 : 7;
+    var n = Math.ceil((w + 24) / step);
+    HERO_WAVES.forEach(function (wv) {
+      var tops = [], bots = [];
+      for (var i = 0; i <= n; i++) {
+        var u = i / n, x = -12 + (w + 24) * u;
+        var yc = wv.y * h + wv.a * h * (Math.sin(u * TAU * wv.f + time * wv.s + wv.p) +
+          0.28 * Math.sin(u * TAU * wv.f * 1.9 - time * wv.s * 1.3 + wv.p * 2));
+        var tw = wv.th * h * (0.62 + 0.38 * Math.sin(u * TAU * 0.8 + time * 0.5 + wv.p));
+        tops.push([x, yc - tw / 2]);
+        bots.push([x, yc + tw / 2]);
+      }
+      var botsRev = bots.slice().reverse();
+      var ribbon = function () {
+        cx.beginPath();
+        smoothLine(cx, tops, true);
+        smoothLine(cx, botsRev, false);
+        cx.closePath();
+      };
+
+      /* тень под лентой: глубина */
+      cx.save();
+      cx.translate(0, h * 0.022);
+      ribbon();
+      cx.fillStyle = "rgba(150,40,110,.07)";
+      cx.fill();
+      cx.restore();
+
+      /* тело ленты: переливается от одного цвета к другому */
+      var g = cx.createLinearGradient(0, 0, w, 0);
+      g.addColorStop(0, "rgba(" + wv.c1 + ",.34)");
+      g.addColorStop(0.5, "rgba(" + wv.c2 + ",.46)");
+      g.addColorStop(1, "rgba(" + wv.c1 + ",.34)");
+      ribbon();
+      cx.fillStyle = g;
+      cx.fill();
+
+      /* глянцевый блик сверху */
+      var top = (wv.y - wv.th * 1.4 - wv.a) * h, bottom = (wv.y + wv.th * 1.2 + wv.a) * h;
+      var lg = cx.createLinearGradient(0, top, 0, bottom);
+      lg.addColorStop(0, "rgba(255,255,255,.55)");
+      lg.addColorStop(0.5, "rgba(255,255,255,.08)");
+      lg.addColorStop(1, "rgba(255,255,255,0)");
+      ribbon();
+      cx.fillStyle = lg;
+      cx.fill();
+
+      /* кромки: яркая верхняя и мягкая нижняя */
+      var eg = cx.createLinearGradient(0, 0, w, 0);
+      eg.addColorStop(0, "rgba(255,255,255,.95)");
+      eg.addColorStop(0.5, "rgba(" + wv.c2 + ",.95)");
+      eg.addColorStop(1, "rgba(255,255,255,.95)");
+      cx.lineCap = "round";
+      cx.lineJoin = "round";
+      cx.beginPath();
+      smoothLine(cx, tops, true);
+      cx.strokeStyle = "rgba(" + wv.c2 + ",.16)";
+      cx.lineWidth = 9;
+      cx.stroke();
+      cx.strokeStyle = eg;
+      cx.lineWidth = 1.8;
+      cx.stroke();
+      cx.beginPath();
+      smoothLine(cx, bots, true);
+      cx.strokeStyle = "rgba(" + wv.c1 + ",.38)";
+      cx.lineWidth = 1.1;
+      cx.stroke();
+    });
+  };
+
+  /* --- Подвал: 4 неоновые розовые волны по высоте --- */
+  var FOOT_WAVES = [
+    { y: 0.16, a: 0.070, f: 0.80, s: 0.50, p: 0.2, c: "255,70,170", d: 0 },
+    { y: 0.38, a: 0.100, f: 1.10, s: -0.40, p: 1.8, c: "255,115,205", d: 1 },
+    { y: 0.62, a: 0.060, f: 0.70, s: 0.35, p: 3.4, c: "235,85,255", d: 2 },
+    { y: 0.86, a: 0.090, f: 1.30, s: -0.55, p: 4.9, c: "255,60,160", d: 3 }
+  ];
+
+  var drawFoot = function (cx, w, h, time) {
+    var step = w < 520 ? 10 : 7;
+    var n = Math.ceil((w + 24) / step);
+    cx.globalCompositeOperation = "lighter";
+    cx.lineCap = "round";
+    cx.lineJoin = "round";
+    FOOT_WAVES.forEach(function (wv) {
+      var pts = [];
+      for (var i = 0; i <= n; i++) {
+        var u = i / n, x = -12 + (w + 24) * u;
+        var y = wv.y * h + wv.a * h * (Math.sin(u * TAU * wv.f + time * wv.s + wv.p) +
+          0.3 * Math.sin(u * TAU * wv.f * 1.8 - time * wv.s * 1.2 + wv.p * 2));
+        pts.push([x, y]);
+      }
+      var k = 0.85 + 0.12 * wv.d;
+      cx.beginPath();
+      smoothLine(cx, pts, true);
+      cx.strokeStyle = "rgba(" + wv.c + ",.10)"; cx.lineWidth = 20 * k; cx.stroke();
+      cx.strokeStyle = "rgba(" + wv.c + ",.22)"; cx.lineWidth = 7 * k; cx.stroke();
+      cx.strokeStyle = "rgba(255,200,235,.95)"; cx.lineWidth = 1.7 * k; cx.stroke();
+    });
+  };
+
+  var heroCanvas = document.getElementById("heroWaves");
+  if (heroCanvas) Scene(heroCanvas, drawHero, isTouch ? 33 : 20);
+  var footCanvas = document.getElementById("footWaves");
+  if (footCanvas) Scene(footCanvas, drawFoot, isTouch ? 40 : 24);
+
+  /* =====================================================================
+     8. РАСКАЧИВАНИЕ БЛОКОВ ПРИ ПРОКРУТКЕ: сильнее, потом плавно к обычному ритму
+     ===================================================================== */
+  var SWAY_SEL = ".review,.product,.case,.news-item,.facts li,.steps li";
+  var swayEls = [];
+  var swayIO = ("IntersectionObserver" in window) ? new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) { en.target.__vis = en.isIntersecting; });
+  }, { rootMargin: "120px" }) : null;
+
+  var swayScan = function () {
+    Array.prototype.forEach.call(document.querySelectorAll(SWAY_SEL), function (el) {
+      if (el.__sway) return;
+      el.__sway = true;
+      el.__vis = !swayIO;
+      el.__ph = rnd(0, 6.283);
+      swayEls.push(el);
+      if (swayIO) swayIO.observe(el);
+    });
+  };
+  swayScan();
+  new MutationObserver(function () { swayScan(); }).observe(document.body, { childList: true, subtree: true });
+
+  var sTarget = 0, sBoost = 0, sRaf = 0, sLast = 0, lastY = window.pageYOffset || 0;
+  var swayOn = function () { return !reduce && allowed("float"); };
+
+  var swayReset = function () {
+    swayEls.forEach(function (el) { el.style.removeProperty("--sway"); el.style.rotate = ""; });
+    sBoost = 0; sTarget = 0; sLast = 0;
+  };
+
+  var swayFrame = function (t) {
+    sRaf = 0;
+    var dt = Math.min(50, t - (sLast || t));
+    sLast = t;
+    var k = dt / 16.7;
+    sTarget *= Math.pow(0.986, k);                       // «затухание» раскачки
+    sBoost += (sTarget - sBoost) * (1 - Math.pow(0.9, k)); // плавный разгон без рывков
+    var amp = 7 + 22 * sBoost;
+    swayEls.forEach(function (el) {
+      if (!el.__vis) return;
+      el.style.setProperty("--sway", amp.toFixed(1) + "px");
+      el.style.rotate = (Math.sin(t * 0.0042 + el.__ph) * 2.2 * sBoost).toFixed(2) + "deg";
+    });
+    if (sTarget > 0.004 || sBoost > 0.006) sRaf = requestAnimationFrame(swayFrame);
+    else swayReset();
+  };
+
+  window.addEventListener("scroll", function () {
+    var y = window.pageYOffset || 0;
+    var d = Math.abs(y - lastY);
+    lastY = y;
+    if (!swayOn()) return;
+    sTarget = Math.min(1, sTarget + d / 260);
+    if (!sRaf) sRaf = requestAnimationFrame(swayFrame);
+  }, { passive: true });
+
+  document.addEventListener("settings:change", function () { if (!swayOn()) swayReset(); });
+
+  /* =====================================================================
+     9. ЧАТ НА ТЕЛЕФОНЕ: подгоняем окно под экранную клавиатуру
+     ===================================================================== */
+  var vv = window.visualViewport;
+  var fitChat = function () {
+    var p = document.querySelector(".bot-panel.open");
+    if (!p) { root.classList.remove("chat-kb"); return; }
+    if (!vv || window.innerWidth > 600) {
+      p.style.top = p.style.height = p.style.bottom = "";
+      p.classList.remove("kb");
+      root.classList.remove("chat-kb");
+      return;
+    }
+    var kb = vv.height < window.innerHeight - 120;       // клавиатура открыта
+    if (kb) {
+      p.style.top = (vv.offsetTop + 8) + "px";
+      p.style.bottom = "auto";
+      p.style.height = (vv.height - 16) + "px";
+    } else {
+      p.style.top = p.style.height = p.style.bottom = "";
+    }
+    p.classList.toggle("kb", kb);
+    root.classList.toggle("chat-kb", kb);
+  };
+  if (vv) {
+    vv.addEventListener("resize", fitChat);
+    vv.addEventListener("scroll", fitChat);
+  }
+  document.addEventListener("focusin", function () { setTimeout(fitChat, 60); setTimeout(fitChat, 350); });
+  document.addEventListener("focusout", function () { setTimeout(fitChat, 120); });
+  document.addEventListener("click", function () { setTimeout(fitChat, 80); }, true);
 })();
