@@ -7,7 +7,7 @@
   /* Страховка от старого кэша стилей на страницах, где ссылка на стили ещё без новой версии */
   var cacheFix = document.createElement("link");
   cacheFix.rel = "stylesheet";
-  cacheFix.href = "css/backgrounds.css?v=10";
+  cacheFix.href = "css/backgrounds.css?v=11";
   document.head.appendChild(cacheFix);
 
   /* Логотип: файл лежит в папке images. Если загрузите логотип под другим именем — поменяйте здесь. */
@@ -74,10 +74,6 @@
       '<button class="switch" type="button" role="switch" aria-checked="false" aria-label="' + label + '" data-set="' + key + '"></button></div>';
   }
 
-  var funInner =
-    '<span class="sub-item" aria-disabled="true">Радио <span class="soon-badge">скоро</span></span>' +
-    '<span class="sub-item" aria-disabled="true">Игры <span class="soon-badge">скоро</span></span>';
-
   var settingsInner =
     '<div class="set-title">Звук</div>' +
     sw("sound", "Звук на сайте") +
@@ -91,15 +87,14 @@
     '<button type="button" data-mode="full" aria-pressed="false">Полный</button>' +
     '<button type="button" data-mode="lite" aria-pressed="false">Лёгкий</button></div>' +
     sw("petals", "Лепестки и сердечки") +
-    sw("waves", "Волны на главной") +
+    sw("waves", "Волны") +
     sw("float", "Парение блоков") +
     sw("big", "Крупный текст") +
     '<button class="set-reset" type="button" data-reset>Сбросить настройки</button>';
 
   var navHtml =
     navLinks +
-    folder("fun", "Развлечения", 4, funInner) +
-    folder("set", "Настройки", 5, settingsInner);
+    folder("set", "Настройки", 4, settingsInner);
 
   var bagIcon =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
@@ -127,6 +122,7 @@
 
   var footer =
     '<footer class="site-footer">' +
+    '<canvas id="footWaves" class="foot-waves" aria-hidden="true"></canvas>' +
     '<div class="wrap">' +
     '<div class="cta-band"><div><h2>Готовы к гладкой коже?</h2>' +
     "<p>Запишитесь на консультацию: мастер осмотрит зону, ответит на вопросы и составит план.</p></div>" +
@@ -274,7 +270,7 @@
   };
 
   /* Звуки и эффекты: два отдельных файла, стили уже в backgrounds.css */
-  ["js/sound.js?v=1", "js/effects.js?v=4"].forEach(function (src) {
+  ["js/sound.js?v=2", "js/effects.js?v=5"].forEach(function (src) {
     var sc = document.createElement("script");
     sc.src = src;
     document.body.appendChild(sc);
