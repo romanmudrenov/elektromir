@@ -54,13 +54,6 @@
       gain.gain.setValueAtTime(0.0001, t);
       gain.gain.linearRampToValueAtTime(0.26, t + 0.003);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.048);
-    } else if (type === "crystal") {  // стекло
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(1900, t);
-      osc.frequency.exponentialRampToValueAtTime(740, t + 0.038);
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.linearRampToValueAtTime(0.2, t + 0.001);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.042);
     } else if (type === "bubble") {   // мягкий поп
       osc.type = "sine";
       osc.frequency.setValueAtTime(260, t);
@@ -116,7 +109,6 @@
   /* Какой звук у какого элемента */
   function typeFor(el) {
     if (el.closest("[data-add],.bot-fab,.bot-form button")) return "bubble";
-    if (el.closest(".nav-block,.sub-item,.bar-cart,.brand")) return "crystal";
     if (el.closest(".chip,.hero-chips a,summary,.switch,.seg button")) return "drop";
     return "wood";
   }
